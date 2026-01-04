@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const Waste = require("../models/Waste");
 
-// ---------------- CREATE WASTE (GENERATOR) ----------------
+// ---------------- CREATE WASTE ----------------
 router.post("/", async (req, res) => {
   try {
     const waste = new Waste({
@@ -12,13 +12,15 @@ router.post("/", async (req, res) => {
 
     await waste.save();
 
-    // 🔥 AI AUTO-MATCH SIMULATION
+    // AI simulation
     setTimeout(async () => {
-      await Waste.findByIdAndUpdate(waste._id, {
-        status: "MATCHED",
-      });
-      console.log("AI matched waste:", waste._id);
-    }, 3000); // 3 sec delay
+      const current = await Waste.findById(waste._id);
+      if (current && current.status === "PENDING") {
+        await Waste.findByIdAndUpdate(waste._id, {
+          status: "MATCHED",
+        });
+      }
+    }, 3000);
 
     res.status(201).json(waste);
   } catch (err) {
@@ -26,29 +28,33 @@ router.post("/", async (req, res) => {
   }
 });
 
-// ---------------- GET WASTE (RECYCLER DASHBOARD) ----------------
+// ---------------- GET ALL (RECYCLER DASHBOARD) ----------------
 router.get("/", async (req, res) => {
   try {
-    const wastes = await Waste.find({
-      status: { $in: ["PENDING", "MATCHED"] },
-    }).sort({ createdAt: -1 });
-
+    const wastes = await Waste.find({ status: "MATCHED" });
     res.status(200).json(wastes);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ---------------- UPDATE STATUS (ACCEPT / REJECT) ----------------
+// ---------------- GET SINGLE (GENERATOR STATUS) ----------------
+router.get("/:id", async (req, res) => {
+  try {
+    const waste = await Waste.findById(req.params.id);
+    res.json(waste);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------- UPDATE STATUS ----------------
 router.put("/:id", async (req, res) => {
   try {
     const { status } = req.body;
 
-    // ✅ Validate status
     if (!["ACCEPTED", "REJECTED"].includes(status)) {
-      return res.status(400).json({
-        message: "Invalid status update",
-      });
+      return res.status(400).json({ message: "Invalid status" });
     }
 
     const updatedWaste = await Waste.findByIdAndUpdate(
@@ -58,9 +64,7 @@ router.put("/:id", async (req, res) => {
     );
 
     if (!updatedWaste) {
-      return res.status(404).json({
-        message: "Waste request not found",
-      });
+      return res.status(404).json({ message: "Waste not found" });
     }
 
     res.status(200).json(updatedWaste);
