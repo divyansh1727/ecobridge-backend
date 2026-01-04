@@ -31,7 +31,8 @@ router.post("/", async (req, res) => {
 // ---------------- GET ALL (RECYCLER DASHBOARD) ----------------
 router.get("/", async (req, res) => {
   try {
-    const wastes = await Waste.find({ status: "MATCHED" });
+    const wastes = await Waste.find({ status: { $in:["MATCHED"]},
+    });
     res.status(200).json(wastes);
   } catch (err) {
     res.status(500).json({ error: err.message });
